@@ -16,4 +16,8 @@
       <PackageReference Include="TweetinviAPI.AspNetPlugin" Version="5.0.4" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Remove=".dockerignore" />
+    </ItemGroup>
+
 </Project>

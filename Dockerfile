@@ -4,7 +4,7 @@ EXPOSE 80
 
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /src
-COPY ["GuidBot/GuidBot.csproj", "GuidBot/"]
+COPY ["./GuidBot/GuidBot.csproj", "GuidBot/"]
 RUN dotnet restore "GuidBot/GuidBot.csproj"
 COPY . .
 WORKDIR "/src/GuidBot"
