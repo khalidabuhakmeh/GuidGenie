@@ -1,4 +1,5 @@
 using Tweetinvi;
+using Tweetinvi.Exceptions;
 using Tweetinvi.Models;
 using Tweetinvi.Parameters;
 
@@ -14,27 +15,52 @@ public class GuidGenieResponder : BackgroundService
         this.twitterClient = twitterClient;
         this.logger = logger;
     }
-    
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var stream = twitterClient.Streams.CreateFilteredStream();
-
-        async void Received(ITweet tweet)
+        while (!stoppingToken.IsCancellationRequested)
         {
-            logger.LogInformation("{tweet}", tweet);
+            var stream = twitterClient.Streams.CreateFilteredStream();
 
+            stream.AddTrack("@GuidGenie", Received);
+            stream.StreamStarted += (_, _) => logger.LogInformation("Starting Filtered Streaming...");
+            stream.StreamStopped += (_, _) => logger.LogInformation("Stream Stopped");
+            
+            try
+            {
+                await stream.StartMatchingAnyConditionAsync().WaitAsync(stoppingToken);
+            }
+            catch (Exception e)
+            {
+                try
+                {
+                    stream.Stop();
+                }
+                catch
+                {
+                    // ignored
+                }
+
+                logger.LogError(e, "Stream stopped due to exception");
+            }
+        }
+    }
+
+    private async void Received(ITweet tweet)
+    {
+        logger.LogInformation("{tweet}", tweet);
+
+        try
+        {
             var client = tweet.Client;
-            var parameters = new PublishTweetParameters($"@{tweet.CreatedBy} {Guid.NewGuid()}") {InReplyToTweet = tweet};
+            var parameters = new PublishTweetParameters($"@{tweet.CreatedBy} {Guid.NewGuid()}")
+                {InReplyToTweet = tweet};
             await client.Tweets.PublishTweetAsync(parameters);
             logger.LogInformation("Reply sent to {username}", tweet.CreatedBy);
         }
-
-        stream.AddTrack("@GuidGenie", Received);
-        stream.StreamStarted += (_, _) => logger.LogInformation("Starting Filtered Streaming...");
-        stream.StreamStopped += (_, _) => logger.LogInformation("Stream Stopped");
-        
-        await stream
-                .StartMatchingAnyConditionAsync()
-                .WaitAsync(stoppingToken);
+        catch (Exception e)
+        {
+            logger.LogError(e, "Unable to reply to {tweet}", tweet);
+        }
     }
 }
